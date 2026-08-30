@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Sistema Facturador</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#f2f4f7;
+    --card:#ffffff;
+    --primary:#2563eb;
+    --primary-dark:#1d4ed8;
+    --danger:#dc2626;
+    --danger-dark:#b91c1c;
+    --success:#16a34a;
+    --text:#1f2937;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding-bottom:40px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  header.appbar{
+    background:var(--primary);
+    color:#fff;
+    padding:16px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    position:sticky;
+    top:0;
+    z-index:50;
+    box-shadow:0 2px 8px rgba(0,0,0,.12);
+  }
+  header.appbar h1{font-size:1.15rem;margin:0;font-weight:700;}
+  header.appbar .back-btn{
+    background:rgba(255,255,255,.18);
+    border:none;color:#fff;padding:8px 12px;border-radius:10px;
+    font-size:.95rem;cursor:pointer;
+  }
+  header.appbar .header-actions{display:flex;gap:4px;}
+  .container{max-width:720px;margin:0 auto;padding:16px;}
+  .card{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:12px;
+    box-shadow:0 1px 3px rgba(0,0,0,.06);
+    border:1px solid var(--border);
+  }
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:none;border-radius:12px;
+    padding:12px 16px;
+    font-size:1rem;font-weight:600;
+    cursor:pointer;
+    transition:background .15s, transform .05s;
+    -webkit-user-select:none;user-select:none;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-primary:hover{background:var(--primary-dark);}
+  .btn-secondary{background:#e5e7eb;color:var(--text);}
+  .btn-secondary:hover{background:#d1d5db;}
+  .btn-danger{background:var(--danger);color:#fff;}
+  .btn-danger:hover{background:var(--danger-dark);}
+  .btn-success{background:var(--success);color:#fff;}
+  .btn-block{width:100%;}
+  .btn-sm{padding:8px 10px;font-size:.85rem;border-radius:10px;}
+  .btn-icon{background:transparent;border:none;font-size:1.1rem;cursor:pointer;padding:6px 8px;border-radius:8px;}
+  .btn-icon:hover{background:#f0f1f3;}
+
+  input[type=text], input[type=tel], input[type=number], select{
+    width:100%;
+    padding:12px 12px;
+    border:1px solid var(--border);
+    border-radius:10px;
+    font-size:1rem;
+    background:#fff;
+    color:var(--text);
+    margin-top:4px;
+  }
+  input:focus, select:focus{outline:2px solid var(--primary);outline-offset:0;}
+  label{font-size:.82rem;color:var(--muted);font-weight:600;display:block;margin-top:10px;}
+  .field-group{margin-bottom:4px;}
+
+  .row{display:flex;gap:10px;}
+  .row > *{flex:1;}
+
+  .top-actions{display:flex;gap:10px;margin-bottom:14px;}
+  .search-wrap{margin-bottom:14px;}
+
+  .view-toggle{display:flex;gap:8px;margin-bottom:14px;}
+  .view-toggle button{
+    flex:1;padding:10px 12px;border-radius:12px;border:1px solid var(--border);
+    background:#fff;color:var(--text);font-weight:600;font-size:.9rem;cursor:pointer;
+  }
+  .view-toggle button.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .map-empty-note{text-align:center;color:var(--muted);font-size:.85rem;padding:10px;}
+  .leaflet-popup-content{margin:10px 12px;}
+
+  .client-item{
+    display:flex;justify-content:space-between;align-items:center;gap:10px;
+  }
+  .client-info{flex:1;min-width:0;}
+  .client-info .name{font-weight:700;font-size:1.02rem;}
+  .client-info .meta{color:var(--muted);font-size:.85rem;margin-top:2px;word-break:break-word;}
+  .client-info .code-badge{
+    display:inline-block;background:#eff4ff;color:var(--primary);
+    font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:20px;margin-bottom:3px;
+  }
+  .client-actions{display:flex;flex-direction:column;gap:6px;}
+  .client-actions .btn{white-space:nowrap;}
+
+  .empty-state{text-align:center;color:var(--muted);padding:40px 10px;}
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(17,24,39,.5);
+    display:flex;align-items:flex-end;justify-content:center;
+    z-index:100;
+  }
+  .modal-overlay.center{align-items:center;}
+  .modal{
+    background:#fff;width:100%;max-width:520px;
+    border-radius:18px 18px 0 0;
+    padding:20px;
+    max-height:90vh;overflow-y:auto;
+    animation:slideUp .18s ease-out;
+  }
+  .modal-overlay.center .modal{border-radius:18px;}
+  @keyframes slideUp{from{transform:translateY(30px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .modal h2{margin:0 0 4px 0;font-size:1.15rem;}
+  .modal-sub{color:var(--muted);font-size:.85rem;margin-bottom:6px;}
+  .modal-actions{display:flex;gap:10px;margin-top:18px;}
+  .modal-actions .btn{flex:1;}
+
+  .summary-box{
+    background:#eff4ff;border:1px solid #c7d9fb;border-radius:12px;padding:12px 14px;margin-bottom:14px;
+  }
+  .summary-box .line{display:flex;justify-content:space-between;font-size:.9rem;padding:2px 0;}
+  .summary-box .line b{font-weight:700;}
+  .summary-box .tag{
+    display:inline-block;background:var(--primary);color:#fff;font-size:.75rem;
+    padding:2px 8px;border-radius:20px;margin-top:4px;
+  }
+
+  .product-item{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+  .product-info{flex:1;min-width:0;}
+  .product-info .pcode{
+    display:inline-block;background:#eef2ff;color:#4338ca;font-size:.72rem;font-weight:700;
+    padding:1px 7px;border-radius:20px;margin-bottom:3px;
+  }
+  .product-info .pname{font-weight:600;}
+  .product-info .pprice{color:var(--muted);font-size:.9rem;}
+  .product-actions{display:flex;align-items:center;gap:6px;}
+
+  table{width:100%;border-collapse:collapse;font-size:.88rem;}
+  th,td{padding:8px 6px;text-align:left;border-bottom:1px solid var(--border);}
+  th{color:var(--muted);font-weight:600;font-size:.78rem;text-transform:uppercase;}
+  td.num{text-align:right;white-space:nowrap;}
+  .qty-control{display:flex;align-items:center;gap:6px;justify-content:center;}
+  .qty-control button{
+    width:28px;height:28px;border-radius:8px;border:1px solid var(--border);
+    background:#f9fafb;font-weight:700;cursor:pointer;font-size:1rem;
+  }
+  .qty-control span{min-width:20px;text-align:center;font-weight:600;}
+
+  .total-bar{
+    display:flex;justify-content:space-between;align-items:center;
+    background:#111827;color:#fff;border-radius:14px;padding:16px 18px;margin:16px 0;
+  }
+  .total-bar .label{font-size:.9rem;opacity:.8;}
+  .total-bar .amount{font-size:1.6rem;font-weight:800;}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:#111827;color:#fff;padding:12px 20px;border-radius:12px;
+    font-size:.92rem;z-index:200;box-shadow:0 4px 14px rgba(0,0,0,.25);
+    opacity:0;transition:opacity .25s, bottom .25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;bottom:36px;}
+
+  .filters-row{display:flex;gap:10px;margin-bottom:14px;}
+  .order-card{margin-bottom:12px;}
+  .order-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .order-head .num{font-weight:800;color:var(--primary);}
+  .order-head .date{color:var(--muted);font-size:.82rem;}
+  .order-detail{margin-top:8px;font-size:.85rem;color:var(--text);}
+  .order-detail ul{margin:6px 0;padding-left:18px;}
+  .order-total{font-weight:800;font-size:1.05rem;margin-top:8px;}
+  .order-footer{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .order-footer .btn{flex:1;min-width:120px;}
+
+  .stats-bar{display:flex;gap:10px;margin:14px 0;}
+  .stats-bar .stat{flex:1;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;}
+  .stats-bar .stat .val{font-size:1.25rem;font-weight:800;color:var(--primary);}
+  .stats-bar .stat .lbl{font-size:.75rem;color:var(--muted);}
+
+  .required-mark{color:var(--danger);}
+  .error-text{color:var(--danger);font-size:.8rem;margin-top:4px;display:none;}
+  .error-text.show{display:block;}
+
+  .fab-space{height:10px;}
+
+  @media print{
+    header.appbar, .no-print, .modal-overlay{display:none !important;}
+    body{background:#fff;padding:0;}
+    .container{max-width:100%;padding:0;}
+    .card{box-shadow:none;border:1px solid #ccc;}
+    .print-only{display:block !important;}
+  }
+  .print-only{display:none;}
+  .print-title{text-align:center;margin-bottom:12px;}
+
+  /* Áreas de impresión especiales: Remito y Hoja de Carga */
+  .remito-print-only, .hoja-print-only{display:none;}
+  body.mode-remito header, body.mode-remito #mainContainer, body.mode-remito .toast{display:none !important;}
+  body.mode-remito .remito-print-only{display:block !important;padding:24px;}
+  body.mode-hoja header, body.mode-hoja #mainContainer, body.mode-hoja .toast{display:none !important;}
+  body.mode-hoja .hoja-print-only{display:block !important;padding:24px;}
+
+  .remito-sheet{max-width:800px;margin:0 auto;}
+  .remito-header{
+    display:flex;justify-content:space-between;align-items:flex-start;gap:24px;
+    padding-bottom:16px;margin-bottom:16px;border-bottom:3px solid #0f3d91;
+  }
+  .remito-box{font-size:.9rem;line-height:1.5;}
+  .remito-box .box-label{
+    font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);
+    font-weight:700;margin-bottom:4px;
+  }
+  .remito-box .big{font-weight:800;font-size:1.1rem;margin-bottom:2px;color:#111827;}
+
+  .remito-brand-box{text-align:right;}
+  .remito-brand-row{display:flex;align-items:center;justify-content:flex-end;gap:12px;}
+  .remito-brand-text .brand-name{font-size:1.2rem;font-weight:800;color:#0f3d91;line-height:1.2;}
+  .remito-brand-text .brand-meta{font-size:.8rem;color:var(--muted);margin-top:2px;}
+  .remito-logo{
+    width:58px;height:58px;border-radius:50%;object-fit:cover;flex-shrink:0;
+    box-shadow:0 2px 6px rgba(0,0,0,.2);
+  }
+  .remito-logo-fallback{
+    width:58px;height:58px;border-radius:50%;background:#0f3d91;color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.2rem;flex-shrink:0;
+  }
+  .remito-tagline{font-size:.75rem;font-style:italic;color:var(--muted);margin-top:6px;}
+
+  .remito-meta-line{font-size:.9rem;color:#111827;font-weight:700;margin-bottom:16px;}
+  .remito-meta-line .date{font-weight:500;color:var(--muted);margin-left:8px;}
+
+  .remito-table{width:100%;border-collapse:collapse;margin-top:4px;}
+  .remito-table th, .remito-table td{border:1px solid #d8dce3;padding:8px 10px;font-size:.85rem;}
+  .remito-table th{background:#0f3d91;color:#fff;text-transform:uppercase;font-size:.7rem;letter-spacing:.4px;}
+  .remito-table tbody tr:nth-child(even){background:#f6f8fb;}
+  .remito-table td.num{text-align:right;}
+  .remito-totals{margin-top:16px;margin-left:auto;width:280px;}
+  .remito-totals .line{display:flex;justify-content:space-between;padding:6px 2px;font-size:.95rem;}
+  .remito-totals .line.total{
+    font-weight:800;font-size:1.15rem;background:#0f3d91;color:#fff;
+    border-radius:8px;padding:10px 12px;margin-top:6px;
+  }
+  .remito-footer-note{text-align:center;color:var(--muted);font-size:.78rem;margin-top:26px;}
+
+  @media print{
+    .remito-table th, .remito-totals .line.total{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  }
+
+  .hoja-print-only h2{text-align:center;margin-bottom:4px;}
+  .hoja-print-only .hoja-sub{text-align:center;color:#555;font-size:.85rem;margin-bottom:16px;}
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <button class="back-btn no-print" id="backBtn" style="visibility:hidden;">← Volver</button>
+  <h1 id="pageTitle">Sistema Facturador</h1>
+  <div class="header-actions no-print">
+    <button class="btn-icon" id="productsShortcutBtn" title="Productos">📦</button>
+    <button class="btn-icon" id="ordersShortcutBtn" title="Pedidos">📋</button>
+  </div>
+</header>
+
+<div class="container" id="mainContainer"></div>
+
+<div id="remitoPrintArea" class="remito-print-only"></div>
+<div id="hojaPrintArea" class="hoja-print-only"></div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIGURACIÓN DE LA EMPRESA (para remitos)
+   ============================================================ */
+const EMPRESA = {
+  name: 'Zafiro La Rioja',
+  address: 'Isla V. Blanco 068',
+  phone: '3804988953',
+  logoDataUrl: 'data:image/jpeg;base64,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'
+};
+
+const DISTRIBUIDORAS = ['Zafiro La Rioja'];
+
+/* ============================================================
+   ESTADO / STORAGE
+   ============================================================ */
+const LS_KEYS = {
+  clients: 'fact_clients',
+  products: 'fact_products',
+  orders: 'fact_orders',
+  counter: 'fact_order_counter'
+};
+
+let state = {
+  view: 'home', // home | orderScreen | ordersList | productsList
+  currentClientId: null,
+  currentDistrib: null,
+  editingOrderId: null, // if modifying an existing order
+  cart: [], // {productId, code, name, price, qty}
+  homeViewMode: 'list', // list | map
+  clientSearch: '',
+  productSearch: '',
+  productsManageSearch: '',
+  ordersFilterDate: ''
+};
+
+function loadClients(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEYS.clients)) || []; }catch(e){ return []; }
+}
+function saveClients(list){ localStorage.setItem(LS_KEYS.clients, JSON.stringify(list)); }
+
+function loadProducts(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEYS.products)) || []; }catch(e){ return []; }
+}
+function saveProducts(list){ localStorage.setItem(LS_KEYS.products, JSON.stringify(list)); }
+
+function loadOrders(){
+  try{ return JSON.parse(localStorage.getItem(LS_KEYS.orders)) || []; }catch(e){ return []; }
+}
+function saveOrders(list){ localStorage.setItem(LS_KEYS.orders, JSON.stringify(list)); }
+
+function nextOrderNumber(){
+  let n = parseInt(localStorage.getItem(LS_KEYS.counter) || '0', 10);
+  n += 1;
+  localStorage.setItem(LS_KEYS.counter, String(n));
+  return n;
+}
+
+function uid(){
+  return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8);
+}
+
+/* ============================================================
+   NORMALIZACIÓN DE DATOS (distribuidora única)
+   Los códigos de clientes y productos ahora los carga la persona
+   manualmente; no se autogeneran.
+   ============================================================ */
+function migrateNormalizeDistrib(){
+  let products = loadProducts();
+  const beforeP = JSON.stringify(products);
+  products.forEach(p=>{ p.distrib = DISTRIBUIDORAS[0]; });
+  if(JSON.stringify(products) !== beforeP) saveProducts(products);
+}
+
+/* ============================================================
+   DATOS DE EJEMPLO (solo si localStorage vacío)
+   ============================================================ */
+function seedDataIfEmpty(){
+  let clients = loadClients();
+  if(clients.length === 0){
+    clients = [
+      { id: uid(), code:'001', name: 'Comercial Los Ceibos', address: 'Av. San Martín 123', phone: '3804123456' },
+      { id: uid(), code:'002', name: 'Almacén Don Pedro', address: 'Calle Belgrano 456', phone: '3804987654' }
+    ];
+    saveClients(clients);
+  }
+  let products = loadProducts();
+  if(products.length === 0){
+    products = [
+      { id: uid(), code:'0001', name: 'Harina 0000 1kg', price: 850, distrib: 'Zafiro La Rioja' },
+      { id: uid(), code:'0002', name: 'Aceite Girasol 1.5L', price: 2100, distrib: 'Zafiro La Rioja' },
+      { id: uid(), code:'0003', name: 'Gaseosa Cola 2.25L', price: 1800, distrib: 'Zafiro La Rioja' },
+      { id: uid(), code:'0004', name: 'Agua Mineral 500ml', price: 600, distrib: 'Zafiro La Rioja' }
+    ];
+    saveProducts(products);
+  }
+}
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+function escapeHtml(str){
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
+function formatMoney(n){
+  n = Number(n) || 0;
+  return '$' + n.toLocaleString('es-AR', {minimumFractionDigits:0, maximumFractionDigits:2});
+}
+
+function formatDateAR(dateStr){
+  // dateStr = YYYY-MM-DD
+  const [y,m,d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function todayISO(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function nowTimeStr(){
+  const d = new Date();
+  return d.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'});
+}
+
+let toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ t.classList.remove('show'); }, 2400);
+}
+
+/* ============================================================
+   RENDER PRINCIPAL / ROUTER
+   ============================================================ */
+const mainContainer = document.getElementById('mainContainer');
+const pageTitle = document.getElementById('pageTitle');
+const backBtn = document.getElementById('backBtn');
+
+function setHeader(title, showBack, onBack){
+  pageTitle.textContent = title;
+  if(showBack){
+    backBtn.style.visibility = 'visible';
+    backBtn.onclick = onBack;
+  } else {
+    backBtn.style.visibility = 'hidden';
+    backBtn.onclick = null;
+  }
+}
+
+function render(){
+  mainContainer.innerHTML = '';
+  if(state.view === 'home'){
+    renderHome();
+  } else if(state.view === 'orderScreen'){
+    renderOrderScreen();
+  } else if(state.view === 'ordersList'){
+    renderOrdersList();
+  } else if(state.view === 'productsList'){
+    renderProductsList();
+  }
+}
+
+document.getElementById('ordersShortcutBtn').addEventListener('click', ()=>{
+  state.view = 'ordersList';
+  render();
+});
+document.getElementById('productsShortcutBtn').addEventListener('click', ()=>{
+  state.view = 'productsList';
+  render();
+});
+
+/* ============================================================
+   PANTALLA 1: INICIO (clientes: listado o mapa)
+   ============================================================ */
+function renderHome(){
+  setHeader('Sistema Facturador', false, null);
+
+  let html = `
+    <div class="top-actions">
+      <button class="btn btn-primary btn-block" id="btnAddClient">➕ Cargar Cliente</button>
+    </div>
+    <div class="view-toggle">
+      <button id="btnViewList" class="${state.homeViewMode==='list'?'active':''}">📋 Listado</button>
+      <button id="btnViewMap" class="${state.homeViewMode==='map'?'active':''}">🗺️ Mapa</button>
+    </div>
+    <div class="search-wrap">
+      <input type="text" id="clientSearchInput" placeholder="🔎 Buscar cliente..." value="${escapeHtml(state.clientSearch)}">
+    </div>
+    <div id="clientViewArea"></div>
+  `;
+  mainContainer.innerHTML = html;
+
+  document.getElementById('btnAddClient').addEventListener('click', ()=> openClientModal(null));
+  document.getElementById('btnViewList').addEventListener('click', ()=>{
+    state.homeViewMode = 'list';
+    render();
+  });
+  document.getElementById('btnViewMap').addEventListener('click', ()=>{
+    state.homeViewMode = 'map';
+    render();
+  });
+  const searchInput = document.getElementById('clientSearchInput');
+  searchInput.addEventListener('input', (e)=>{
+    state.clientSearch = e.target.value;
+    renderClientViewArea();
+  });
+
+  renderClientViewArea();
+}
+
+function getFilteredClients(){
+  const s = state.clientSearch.trim().toLowerCase();
+  return loadClients().filter(c => c.name.toLowerCase().includes(s));
+}
+
+function renderClientViewArea(){
+  const list = getFilteredClients();
+  if(state.homeViewMode === 'map'){
+    renderClientMap(list);
+  } else {
+    renderClientList(list);
+  }
+}
+
+function renderClientList(list){
+  const wrap = document.getElementById('clientViewArea');
+  if(!wrap) return;
+  if(list.length === 0){
+    wrap.innerHTML = `<div class="empty-state">No hay clientes para mostrar.</div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(c => `
+    <div class="card client-item">
+      <div class="client-info">
+        <span class="code-badge">N° ${escapeHtml(c.code || '-')}</span>
+        <div class="name">${escapeHtml(c.name)}${(c.lat!=null && c.lng!=null) ? ' 📍' : ''}</div>
+        <div class="meta">${escapeHtml(c.address || '(sin dirección)')}</div>
+        <div class="meta">${escapeHtml(c.phone || '(sin teléfono)')}</div>
+      </div>
+      <div class="client-actions">
+        <button class="btn btn-secondary btn-sm" data-edit="${c.id}">✏️ Modificar</button>
+        <button class="btn btn-primary btn-sm" data-order="${c.id}">🛒 Cargar Pedido</button>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('[data-edit]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const client = loadClients().find(c=>c.id === btn.dataset.edit);
+      openClientModal(client);
+    });
+  });
+  wrap.querySelectorAll('[data-order]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      startNewOrder(btn.dataset.order, DISTRIBUIDORAS[0]);
+    });
+  });
+}
+
+/* ============================================================
+   VISTA DE MAPA DE CLIENTES
+   ============================================================ */
+let clientMapInstance = null;
+
+function renderClientMap(list){
+  const wrap = document.getElementById('clientViewArea');
+  if(!wrap) return;
+
+  const withCoords = list.filter(c => typeof c.lat === 'number' && typeof c.lng === 'number' && !isNaN(c.lat) && !isNaN(c.lng));
+  const withoutCoords = list.length - withCoords.length;
+
+  wrap.innerHTML = `
+    <div id="clientMapEl" style="height:420px;border-radius:14px;overflow:hidden;border:1px solid var(--border);"></div>
+    ${withoutCoords > 0 ? `<div class="map-empty-note">${withoutCoords} cliente(s) sin ubicación guardada (no se muestran en el mapa).</div>` : ''}
+    ${list.length === 0 ? `<div class="empty-state">No hay clientes para mostrar.</div>` : ''}
+  `;
+
+  if(typeof L === 'undefined'){
+    document.getElementById('clientMapEl').innerHTML = '<div class="empty-state">No se pudo cargar el mapa (sin conexión a internet).</div>';
+    return;
+  }
+
+  if(clientMapInstance){
+    clientMapInstance.remove();
+    clientMapInstance = null;
+  }
+
+  const defaultCenter = [-29.4131, -66.8558]; // La Rioja, Argentina
+  const map = L.map('clientMapEl').setView(defaultCenter, 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  clientMapInstance = map;
+
+  if(withCoords.length === 0) return;
+
+  const bounds = [];
+  withCoords.forEach(c=>{
+    const marker = L.marker([c.lat, c.lng]).addTo(map);
+    const popupHtml = `
+      <div style="min-width:170px;">
+        <div style="font-weight:700;margin-bottom:2px;">${escapeHtml(c.name)}</div>
+        <div style="font-size:.8rem;color:#555;margin-bottom:8px;">${escapeHtml(c.address || '')}</div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="window.mapEditClient('${c.id}')" style="flex:1;padding:6px 8px;border:none;border-radius:8px;background:#e5e7eb;cursor:pointer;font-size:.78rem;">Modificar</button>
+          <button onclick="window.mapOrderClient('${c.id}')" style="flex:1;padding:6px 8px;border:none;border-radius:8px;background:#2563eb;color:#fff;cursor:pointer;font-size:.78rem;">Pedido</button>
+        </div>
+      </div>
+    `;
+    marker.bindPopup(popupHtml);
+    bounds.push([c.lat, c.lng]);
+  });
+  map.fitBounds(bounds, { padding:[30,30], maxZoom:15 });
+}
+
+window.mapEditClient = function(id){
+  const client = loadClients().find(c=>c.id===id);
+  if(client) openClientModal(client);
+};
+window.mapOrderClient = function(id){
+  startNewOrder(id, DISTRIBUIDORAS[0]);
+};
+
+/* ============================================================
+   MODAL: CARGAR / MODIFICAR CLIENTE
+   ============================================================ */
+function openClientModal(existingClient){
+  const isEdit = !!existingClient;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  const lat = isEdit && existingClient.lat!=null ? existingClient.lat : '';
+  const lng = isEdit && existingClient.lng!=null ? existingClient.lng : '';
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>${isEdit ? 'Modificar Cliente' : 'Cargar Cliente'}</h2>
+      <div class="field-group">
+        <label>Código <span class="required-mark">*</span></label>
+        <input type="text" id="clientCodeInput" value="${isEdit ? escapeHtml(existingClient.code || '') : ''}" placeholder="Ej: 001">
+        <div class="error-text" id="clientCodeError">El código es obligatorio.</div>
+      </div>
+      <div class="field-group">
+        <label>Nombre completo <span class="required-mark">*</span></label>
+        <input type="text" id="clientNameInput" value="${isEdit ? escapeHtml(existingClient.name) : ''}" placeholder="Ej: Comercial Los Ceibos">
+        <div class="error-text" id="clientNameError">El nombre es obligatorio.</div>
+      </div>
+      <div class="field-group">
+        <label>Dirección</label>
+        <input type="text" id="clientAddressInput" value="${isEdit ? escapeHtml(existingClient.address) : ''}" placeholder="Ej: Av. San Martín 123">
+      </div>
+      <div class="field-group">
+        <label>Teléfono</label>
+        <input type="tel" id="clientPhoneInput" value="${isEdit ? escapeHtml(existingClient.phone) : ''}" placeholder="Ej: 3804123456">
+      </div>
+      <div class="field-group">
+        <label>Ubicación (opcional)</label>
+        <div class="row">
+          <input type="number" step="any" id="clientLatInput" value="${lat}" placeholder="Latitud">
+          <input type="number" step="any" id="clientLngInput" value="${lng}" placeholder="Longitud">
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="clientGeoBtn" style="margin-top:8px;">📍 Usar mi ubicación actual</button>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="clientCancelBtn">Cancelar</button>
+        <button class="btn btn-primary" id="clientSaveBtn">Guardar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) document.body.removeChild(overlay); });
+  document.getElementById('clientCancelBtn').addEventListener('click', ()=> document.body.removeChild(overlay));
+
+  document.getElementById('clientGeoBtn').addEventListener('click', ()=>{
+    if(!navigator.geolocation){
+      showToast('Este dispositivo no soporta geolocalización.');
+      return;
+    }
+    showToast('Obteniendo ubicación...');
+    navigator.geolocation.getCurrentPosition(
+      pos=>{
+        document.getElementById('clientLatInput').value = pos.coords.latitude.toFixed(6);
+        document.getElementById('clientLngInput').value = pos.coords.longitude.toFixed(6);
+        showToast('Ubicación capturada.');
+      },
+      err=>{
+        showToast('No se pudo obtener la ubicación.');
+      },
+      { enableHighAccuracy:true, timeout:10000 }
+    );
+  });
+
+  document.getElementById('clientSaveBtn').addEventListener('click', ()=>{
+    const codeInput = document.getElementById('clientCodeInput');
+    const nameInput = document.getElementById('clientNameInput');
+    const code = codeInput.value.trim();
+    const name = nameInput.value.trim();
+    const address = document.getElementById('clientAddressInput').value.trim();
+    const phone = document.getElementById('clientPhoneInput').value.trim();
+    const latVal = document.getElementById('clientLatInput').value.trim();
+    const lngVal = document.getElementById('clientLngInput').value.trim();
+    const newLat = latVal ? parseFloat(latVal) : null;
+    const newLng = lngVal ? parseFloat(lngVal) : null;
+
+    let valid = true;
+    document.getElementById('clientCodeError').classList.remove('show');
+    document.getElementById('clientNameError').classList.remove('show');
+    if(!code){
+      document.getElementById('clientCodeError').classList.add('show');
+      valid = false;
+    }
+    if(!name){
+      document.getElementById('clientNameError').classList.add('show');
+      valid = false;
+    }
+    if(!valid){
+      nameInput.focus();
+      return;
+    }
+
+    let clients = loadClients();
+    if(isEdit){
+      const idx = clients.findIndex(c=>c.id === existingClient.id);
+      if(idx > -1){
+        clients[idx] = { ...clients[idx], code, name, address, phone, lat: newLat, lng: newLng };
+      }
+    } else {
+      clients.push({ id: uid(), code, name, address, phone, lat: newLat, lng: newLng });
+    }
+    saveClients(clients);
+    document.body.removeChild(overlay);
+    showToast(isEdit ? 'Cliente actualizado.' : 'Cliente guardado.');
+    render();
+  });
+}
+
+function startNewOrder(clientId, distrib){
+  state.currentClientId = clientId;
+  state.currentDistrib = distrib;
+  state.editingOrderId = null;
+  state.cart = [];
+  state.productSearch = '';
+  state.view = 'orderScreen';
+  render();
+}
+
+/* ============================================================
+   PANTALLA: PEDIDO (buscador + carrito)
+   ============================================================ */
+function renderOrderScreen(){
+  const clients = loadClients();
+  const client = clients.find(c=>c.id === state.currentClientId);
+  if(!client){
+    state.view = 'home';
+    render();
+    return;
+  }
+
+  setHeader(state.editingOrderId ? 'Modificar Pedido' : 'Nuevo Pedido', true, ()=>{
+    if(confirm('¿Salir del pedido? Se perderán los cambios no finalizados.')){
+      state.view = state.editingOrderId ? 'ordersList' : 'home';
+      state.editingOrderId = null;
+      render();
+    }
+  });
+
+  const html = `
+    <div class="summary-box">
+      <div class="line"><span>Cliente:</span><b>${escapeHtml(client.name)}</b></div>
+      <div class="line"><span>Dirección:</span><b>${escapeHtml(client.address || '-')}</b></div>
+      <div class="line"><span>Teléfono:</span><b>${escapeHtml(client.phone || '-')}</b></div>
+      <div class="line" style="margin-top:6px;"><span>Distribuidora:</span></div>
+      <div class="tag">${escapeHtml(state.currentDistrib)}</div>
+    </div>
+
+    <div class="search-wrap">
+      <input type="text" id="productSearchInput" placeholder="🔎 Buscar producto..." value="${escapeHtml(state.productSearch)}">
+    </div>
+
+    <div id="productList"></div>
+
+    <h3 style="margin-top:22px;">Pedido actual</h3>
+    <div class="card" style="padding:8px 10px;">
+      <div id="cartTableWrap"></div>
+    </div>
+
+    <div class="total-bar">
+      <div>
+        <div class="label">TOTAL DEL PEDIDO</div>
+        <div class="amount" id="orderTotalAmount">${formatMoney(0)}</div>
+      </div>
+    </div>
+
+    <div class="row no-print">
+      <button class="btn btn-secondary btn-block" id="btnEmptyOrder">🗑️ Vaciar pedido</button>
+      <button class="btn btn-primary btn-block" id="btnFinishOrder">✅ Finalizar pedido</button>
+    </div>
+    <div class="fab-space"></div>
+  `;
+  mainContainer.innerHTML = html;
+
+  document.getElementById('productSearchInput').addEventListener('input', (e)=>{
+    state.productSearch = e.target.value;
+    renderProductList();
+  });
+  document.getElementById('btnEmptyOrder').addEventListener('click', ()=>{
+    if(state.cart.length === 0) return;
+    if(confirm('¿Vaciar todo el pedido actual?')){
+      state.cart = [];
+      renderCart();
+    }
+  });
+  document.getElementById('btnFinishOrder').addEventListener('click', finishOrder);
+
+  renderProductList();
+  renderCart();
+}
+
+function renderProductList(){
+  const wrap = document.getElementById('productList');
+  if(!wrap) return;
+  const search = state.productSearch.trim().toLowerCase();
+  const allProducts = loadProducts();
+
+  let products;
+  if(search){
+    products = allProducts.filter(p =>
+      p.name.toLowerCase().includes(search) || (p.code || '').toLowerCase().includes(search)
+    );
+  } else {
+    products = allProducts.slice(0,5);
+  }
+
+  if(products.length === 0){
+    wrap.innerHTML = `<div class="empty-state">No se encontraron productos.</div>`;
+    return;
+  }
+
+  wrap.innerHTML = products.map(p => `
+    <div class="card product-item">
+      <div class="product-info">
+        <div><span class="pcode">${escapeHtml(p.code || '-')}</span></div>
+        <div class="pname">${escapeHtml(p.name)}</div>
+        <div class="pprice">${formatMoney(p.price)}</div>
+      </div>
+      <div class="product-actions">
+        <button class="btn btn-primary btn-sm" data-add-product="${p.id}">Agregar</button>
+      </div>
+    </div>
+  `).join('');
+
+  wrap.querySelectorAll('[data-add-product]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      addProductToCart(btn.dataset.addProduct);
+    });
+  });
+}
+
+function addProductToCart(productId){
+  const product = loadProducts().find(p=>p.id === productId);
+  if(!product) return;
+  const existing = state.cart.find(item => item.productId === productId);
+  if(existing){
+    existing.qty += 1;
+  } else {
+    state.cart.push({ productId: product.id, code: product.code, name: product.name, price: product.price, qty: 1 });
+  }
+  renderCart();
+  showToast(`${product.name} agregado.`);
+}
+
+function renderCart(){
+  const wrap = document.getElementById('cartTableWrap');
+  const totalEl = document.getElementById('orderTotalAmount');
+  if(!wrap) return;
+
+  if(state.cart.length === 0){
+    wrap.innerHTML = `<div class="empty-state">El pedido está vacío. Agregá productos del catálogo.</div>`;
+    if(totalEl) totalEl.textContent = formatMoney(0);
+    return;
+  }
+
+  let total = 0;
+  const rows = state.cart.map((item, idx) => {
+    const subtotal = item.price * item.qty;
+    total += subtotal;
+    return `
+      <tr>
+        <td>${escapeHtml(item.name)}</td>
+        <td class="num">${formatMoney(item.price)}</td>
+        <td>
+          <div class="qty-control no-print">
+            <button data-dec="${idx}">−</button>
+            <span>${item.qty}</span>
+            <button data-inc="${idx}">+</button>
+          </div>
+          <div class="print-only" style="text-align:center;">${item.qty}</div>
+        </td>
+        <td class="num">${formatMoney(subtotal)}</td>
+        <td class="no-print"><button class="btn-icon" data-remove="${idx}" title="Eliminar">🗑️</button></td>
+      </tr>
+    `;
+  }).join('');
+
+  wrap.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th class="num">P. Unit.</th>
+          <th>Cant.</th>
+          <th class="num">Subtotal</th>
+          <th class="no-print"></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  wrap.querySelectorAll('[data-inc]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.cart[btn.dataset.inc].qty += 1;
+      renderCart();
+    });
+  });
+  wrap.querySelectorAll('[data-dec]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = btn.dataset.dec;
+      state.cart[idx].qty -= 1;
+      if(state.cart[idx].qty <= 0){
+        state.cart.splice(idx,1);
+      }
+      renderCart();
+    });
+  });
+  wrap.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.cart.splice(btn.dataset.remove,1);
+      renderCart();
+    });
+  });
+
+  if(totalEl) totalEl.textContent = formatMoney(total);
+}
+
+function getCartTotal(){
+  return state.cart.reduce((sum,item)=> sum + item.price * item.qty, 0);
+}
+
+/* ============================================================
+   PANTALLA: GESTIÓN DE PRODUCTOS (cargar / modificar, con código)
+   ============================================================ */
+function renderProductsList(){
+  setHeader('📦 Productos', true, ()=>{
+    state.view = 'home';
+    render();
+  });
+
+  const html = `
+    <div class="top-actions">
+      <button class="btn btn-primary btn-block" id="btnAddProductGlobal">➕ Cargar Producto</button>
+    </div>
+    <div class="search-wrap">
+      <input type="text" id="productsManageSearchInput" placeholder="🔎 Buscar por nombre o código..." value="${escapeHtml(state.productsManageSearch)}">
+    </div>
+    <div id="productsManageList"></div>
+  `;
+  mainContainer.innerHTML = html;
+
+  document.getElementById('btnAddProductGlobal').addEventListener('click', ()=> openProductModal(null));
+  document.getElementById('productsManageSearchInput').addEventListener('input', (e)=>{
+    state.productsManageSearch = e.target.value;
+    refreshProductsManageList();
+  });
+
+  refreshProductsManageList();
+
+  function refreshProductsManageList(){
+    const wrap = document.getElementById('productsManageList');
+    const search = state.productsManageSearch.trim().toLowerCase();
+    let products = loadProducts().slice().sort((a,b)=> (a.code||'').localeCompare(b.code||''));
+    if(search){
+      products = products.filter(p => p.name.toLowerCase().includes(search) || (p.code||'').toLowerCase().includes(search));
+    }
+    if(products.length === 0){
+      wrap.innerHTML = `<div class="empty-state">No hay productos para mostrar.</div>`;
+      return;
+    }
+    wrap.innerHTML = products.map(p => `
+      <div class="card product-item">
+        <div class="product-info">
+          <div><span class="pcode">${escapeHtml(p.code || '-')}</span></div>
+          <div class="pname">${escapeHtml(p.name)}</div>
+          <div class="pprice">${formatMoney(p.price)}</div>
+        </div>
+        <div class="product-actions">
+          <button class="btn btn-secondary btn-sm" data-edit-product="${p.id}">✏️ Modificar</button>
+        </div>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('[data-edit-product]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const product = loadProducts().find(p=>p.id === btn.dataset.editProduct);
+        openProductModal(product);
+      });
+    });
+  }
+}
+
+/* ============================================================
+   MODAL: CARGAR / MODIFICAR PRODUCTO
+   ============================================================ */
+function openProductModal(existingProduct){
+  const isEdit = !!existingProduct;
+  const currentCode = isEdit ? existingProduct.code : '';
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  overlay.innerHTML = `
+    <div class="modal">
+      <h2>${isEdit ? 'Modificar Producto' : 'Cargar Producto'}</h2>
+      <div class="field-group">
+        <label>Código <span class="required-mark">*</span></label>
+        <input type="text" id="productCodeInput" value="${escapeHtml(currentCode || '')}" placeholder="Ej: 0001">
+        <div class="error-text" id="productCodeError">El código es obligatorio.</div>
+      </div>
+      <div class="field-group">
+        <label>Nombre <span class="required-mark">*</span></label>
+        <input type="text" id="productNameInput" value="${isEdit ? escapeHtml(existingProduct.name) : ''}" placeholder="Ej: Harina 0000 1kg">
+        <div class="error-text" id="productNameError">El nombre es obligatorio.</div>
+      </div>
+      <div class="field-group">
+        <label>Precio <span class="required-mark">*</span></label>
+        <input type="number" id="productPriceInput" min="0.01" step="0.01" value="${isEdit ? existingProduct.price : ''}" placeholder="Ej: 850">
+        <div class="error-text" id="productPriceError">El precio debe ser mayor que 0.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="productCancelBtn">Cancelar</button>
+        <button class="btn btn-primary" id="productSaveBtn">Guardar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener('click', (e)=>{ if(e.target === overlay) document.body.removeChild(overlay); });
+  document.getElementById('productCancelBtn').addEventListener('click', ()=> document.body.removeChild(overlay));
+
+  document.getElementById('productSaveBtn').addEventListener('click', ()=>{
+    const codeInput = document.getElementById('productCodeInput');
+    const nameInput = document.getElementById('productNameInput');
+    const priceInput = document.getElementById('productPriceInput');
+
+    const code = codeInput.value.trim();
+    const name = nameInput.value.trim();
+    const price = parseFloat(priceInput.value);
+
+    let valid = true;
+    document.getElementById('productCodeError').classList.remove('show');
+    document.getElementById('productNameError').classList.remove('show');
+    document.getElementById('productPriceError').classList.remove('show');
+
+    if(!code){
+      document.getElementById('productCodeError').classList.add('show');
+      valid = false;
+    }
+    if(!name){
+      document.getElementById('productNameError').classList.add('show');
+      valid = false;
+    }
+    if(isNaN(price) || price <= 0){
+      document.getElementById('productPriceError').classList.add('show');
+      valid = false;
+    }
+    if(!valid) return;
+
+    let products = loadProducts();
+    if(isEdit){
+      const idx = products.findIndex(p=>p.id === existingProduct.id);
+      if(idx > -1){
+        products[idx] = { ...products[idx], code, name, price, distrib: DISTRIBUIDORAS[0] };
+      }
+      // actualizar nombre/precio/código también en carrito actual si corresponde
+      state.cart.forEach(item=>{
+        if(item.productId === existingProduct.id){
+          item.code = code;
+          item.name = name;
+          item.price = price;
+        }
+      });
+    } else {
+      products.push({ id: uid(), code, name, price, distrib: DISTRIBUIDORAS[0] });
+    }
+    saveProducts(products);
+    document.body.removeChild(overlay);
+    showToast(isEdit ? 'Producto actualizado.' : 'Producto guardado.');
+
+    if(state.view === 'orderScreen'){
+      renderProductList();
+      renderCart();
+    } else if(state.view === 'productsList'){
+      render();
+    }
+  });
+}
+
+/* ============================================================
+   FINALIZAR / GUARDAR PEDIDO
+   ============================================================ */
+function finishOrder(){
+  if(state.cart.length === 0){
+    showToast('⚠️ El pedido está vacío. Agregá al menos un producto.');
+    return;
+  }
+
+  const clients = loadClients();
+  const client = clients.find(c=>c.id === state.currentClientId);
+  if(!client) return;
+
+  const total = getCartTotal();
+  let orders = loadOrders();
+
+  const itemsSnapshot = state.cart.map(i=>({ productId:i.productId, code:i.code, name:i.name, price:i.price, qty:i.qty, subtotal:i.price*i.qty }));
+
+  if(state.editingOrderId){
+    const idx = orders.findIndex(o=>o.id === state.editingOrderId);
+    if(idx > -1){
+      orders[idx] = {
+        ...orders[idx],
+        clientId: client.id,
+        clientCode: client.code,
+        clientName: client.name,
+        clientPhone: client.phone,
+        clientAddress: client.address,
+        distrib: state.currentDistrib,
+        items: itemsSnapshot,
+        total
+      };
+    }
+    saveOrders(orders);
+    showToast('Pedido guardado correctamente.');
+    state.editingOrderId = null;
+    state.cart = [];
+    state.view = 'ordersList';
+    render();
+    return;
+  }
+
+  const newOrder = {
+    id: uid(),
+    number: nextOrderNumber(),
+    date: todayISO(),
+    time: nowTimeStr(),
+    clientId: client.id,
+    clientCode: client.code,
+    clientName: client.name,
+    clientPhone: client.phone,
+    clientAddress: client.address,
+    distrib: state.currentDistrib,
+    items: itemsSnapshot,
+    total
+  };
+  orders.push(newOrder);
+  saveOrders(orders);
+
+  showToast('Pedido guardado correctamente.');
+  state.cart = [];
+  state.view = 'ordersList';
+  render();
+}
+
+/* ============================================================
+   PANTALLA: PEDIDOS / LISTADO
+   ============================================================ */
+function renderOrdersList(){
+  setHeader('📋 Pedidos', true, ()=>{
+    state.view = 'home';
+    render();
+  });
+
+  const html = `
+    <div class="filters-row no-print">
+      <input type="text" id="filterDate" placeholder="Filtrar por fecha AAAA-MM-DD" value="${escapeHtml(state.ordersFilterDate)}">
+    </div>
+    <div class="row no-print">
+      <button class="btn btn-secondary btn-block" id="btnTodayFilter">Solo hoy</button>
+      <button class="btn btn-secondary btn-block" id="btnClearFilter">Ver todos</button>
+    </div>
+    <div class="row no-print">
+      <button class="btn btn-primary btn-block" id="btnHojaCarga">📄 Hoja de Carga</button>
+      <button class="btn btn-primary btn-block" id="btnPrintOrders">🖨️ Imprimir Listado</button>
+    </div>
+    <div id="ordersStats"></div>
+    <div class="print-only print-title">
+      <h2>Listado de Pedidos</h2>
+    </div>
+    <div id="ordersListWrap"></div>
+  `;
+  mainContainer.innerHTML = html;
+
+  document.getElementById('filterDate').addEventListener('input',(e)=>{
+    state.ordersFilterDate = e.target.value.trim();
+    refreshOrdersListing();
+  });
+  document.getElementById('btnTodayFilter').addEventListener('click', ()=>{
+    state.ordersFilterDate = todayISO();
+    document.getElementById('filterDate').value = state.ordersFilterDate;
+    refreshOrdersListing();
+  });
+  document.getElementById('btnClearFilter').addEventListener('click', ()=>{
+    state.ordersFilterDate = '';
+    document.getElementById('filterDate').value = '';
+    refreshOrdersListing();
+  });
+  document.getElementById('btnPrintOrders').addEventListener('click', ()=> window.print());
+  document.getElementById('btnHojaCarga').addEventListener('click', printHojaCarga);
+
+  refreshOrdersListing();
+
+  function refreshOrdersListing(){
+    let orders = loadOrders().slice().sort((a,b)=>{
+      if(a.date === b.date) return b.number - a.number;
+      return a.date < b.date ? 1 : -1;
+    });
+    if(state.ordersFilterDate){
+      orders = orders.filter(o=>o.date === state.ordersFilterDate);
+    }
+
+    const statsWrap = document.getElementById('ordersStats');
+    const totalAmount = orders.reduce((s,o)=>s+o.total,0);
+    statsWrap.innerHTML = `
+      <div class="stats-bar">
+        <div class="stat"><div class="val">${orders.length}</div><div class="lbl">Pedidos</div></div>
+        <div class="stat"><div class="val">${formatMoney(totalAmount)}</div><div class="lbl">Monto total</div></div>
+      </div>
+    `;
+
+    const listWrap = document.getElementById('ordersListWrap');
+    if(orders.length === 0){
+      listWrap.innerHTML = `<div class="empty-state">No hay pedidos para mostrar.</div>`;
+      return;
+    }
+
+    listWrap.innerHTML = orders.map(o => `
+      <div class="card order-card">
+        <div class="order-head">
+          <div>
+            <div class="num">Pedido #${o.number}</div>
+            <div class="date">${formatDateAR(o.date)} <span class="no-print">- ${escapeHtml(o.time)}</span></div>
+          </div>
+        </div>
+        <div class="order-detail">
+          <div><b>${escapeHtml(o.clientName)}</b></div>
+          <div>${escapeHtml(o.clientPhone || '-')}</div>
+          <div>${escapeHtml(o.clientAddress || '-')}</div>
+          <ul>
+            ${o.items.map(it=>`<li>${escapeHtml(it.code||'-')} — ${escapeHtml(it.name)} x${it.qty} — ${formatMoney(it.subtotal)}</li>`).join('')}
+          </ul>
+        </div>
+        <div class="order-total">Total: ${formatMoney(o.total)}</div>
+        <div class="order-footer no-print">
+          <button class="btn btn-secondary" data-edit-order="${o.id}">✏️ Modificar</button>
+          <button class="btn btn-primary" data-remito-order="${o.id}">🧾 Remito</button>
+        </div>
+      </div>
+    `).join('');
+
+    listWrap.querySelectorAll('[data-edit-order]').forEach(btn=>{
+      btn.addEventListener('click', ()=> openOrderForEdit(btn.dataset.editOrder));
+    });
+    listWrap.querySelectorAll('[data-remito-order]').forEach(btn=>{
+      btn.addEventListener('click', ()=> printRemito(btn.dataset.remitoOrder));
+    });
+  }
+}
+
+function openOrderForEdit(orderId){
+  const order = loadOrders().find(o=>o.id===orderId);
+  if(!order) return;
+  // Asegurar que el cliente exista todavía
+  const client = loadClients().find(c=>c.id === order.clientId);
+  if(!client){
+    alert('El cliente de este pedido ya no existe.');
+    return;
+  }
+  state.currentClientId = order.clientId;
+  state.currentDistrib = order.distrib;
+  state.editingOrderId = order.id;
+  state.cart = order.items.map(it => ({ productId: it.productId, code: it.code, name: it.name, price: it.price, qty: it.qty }));
+  state.productSearch = '';
+  state.view = 'orderScreen';
+  render();
+}
+
+/* ============================================================
+   IMPRESIÓN: HOJA DE CARGA
+   ============================================================ */
+function buildHojaCargaItems(orders){
+  const map = {};
+  orders.forEach(o=>{
+    o.items.forEach(it=>{
+      const key = it.productId || it.name;
+      if(!map[key]){
+        map[key] = { code: it.code || '-', name: it.name, qty: 0 };
+      }
+      map[key].qty += it.qty;
+    });
+  });
+  return Object.values(map).sort((a,b)=> (a.code||'').localeCompare(b.code||''));
+}
+
+function printHojaCarga(){
+  let orders = loadOrders();
+  if(state.ordersFilterDate){
+    orders = orders.filter(o=>o.date === state.ordersFilterDate);
+  }
+  if(orders.length === 0){
+    showToast('No hay pedidos para generar la hoja de carga.');
+    return;
+  }
+
+  const items = buildHojaCargaItems(orders);
+  const subtitle = state.ordersFilterDate
+    ? `Fecha: ${formatDateAR(state.ordersFilterDate)}`
+    : `Todos los pedidos (${orders.length})`;
+
+  const rows = items.map(it => `
+    <tr>
+      <td>${escapeHtml(it.code)}</td>
+      <td>${escapeHtml(it.name)}</td>
+      <td class="num">${it.qty}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <h2>Hoja de Carga</h2>
+    <div class="hoja-sub">${escapeHtml(subtitle)}</div>
+    <table class="remito-table">
+      <thead>
+        <tr><th>Código</th><th>Descripción</th><th class="num">Cantidad</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  document.getElementById('hojaPrintArea').innerHTML = html;
+  document.body.classList.add('mode-hoja');
+  window.print();
+}
+
+/* ============================================================
+   IMPRESIÓN: REMITO
+   ============================================================ */
+function printRemito(orderId){
+  const order = loadOrders().find(o=>o.id === orderId);
+  if(!order) return;
+
+  let clientCode = order.clientCode;
+  if(!clientCode){
+    const client = loadClients().find(c=>c.id === order.clientId);
+    clientCode = client ? (client.code || '-') : '-';
+  }
+
+  const rows = order.items.map(it => `
+    <tr>
+      <td>${escapeHtml(it.code || '-')}</td>
+      <td class="num">${it.qty}</td>
+      <td>${escapeHtml(it.name)}</td>
+      <td class="num">${formatMoney(it.price)}</td>
+      <td class="num">${formatMoney(it.subtotal)}</td>
+    </tr>
+  `).join('');
+
+  const initials = EMPRESA.name.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase();
+  const logoHtml = EMPRESA.logoDataUrl
+    ? `<img src="${EMPRESA.logoDataUrl}" alt="Logo" class="remito-logo">`
+    : `<div class="remito-logo-fallback">${escapeHtml(initials)}</div>`;
+
+  const comprobanteNum = String(order.number).padStart(6,'0');
+
+  const html = `
+    <div class="remito-sheet">
+      <div class="remito-header">
+        <div class="remito-box">
+          <div class="box-label">Cliente N° ${escapeHtml(clientCode)}</div>
+          <div class="big">${escapeHtml(order.clientName)}</div>
+          <div>${escapeHtml(order.clientAddress || '-')}</div>
+          <div>${escapeHtml(order.clientPhone || '-')}</div>
+        </div>
+        <div class="remito-brand-box">
+          <div class="remito-brand-row">
+            <div class="remito-brand-text">
+              <div class="brand-name">${escapeHtml(EMPRESA.name)}</div>
+              <div class="brand-meta">${escapeHtml(EMPRESA.address)}</div>
+              <div class="brand-meta">${escapeHtml(EMPRESA.phone)}</div>
+            </div>
+            ${logoHtml}
+          </div>
+          <div class="remito-tagline">Distribuidor oficial de Saphirus</div>
+        </div>
+      </div>
+
+      <div class="remito-meta-line">Comprobante ${comprobanteNum}<span class="date">${formatDateAR(order.date)}</span></div>
+
+      <table class="remito-table">
+        <thead>
+          <tr><th>Código</th><th>Cantidad</th><th>Descripción</th><th>P. Unitario</th><th>Precio</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="remito-totals">
+        <div class="line"><span>Subtotal</span><span>${formatMoney(order.total)}</span></div>
+        <div class="line total"><span>Total</span><span>${formatMoney(order.total)}</span></div>
+      </div>
+      <div class="remito-footer-note">Gracias por su compra — ${escapeHtml(EMPRESA.name)}</div>
+    </div>
+  `;
+
+  document.getElementById('remitoPrintArea').innerHTML = html;
+  document.body.classList.add('mode-remito');
+  window.print();
+}
+
+window.addEventListener('afterprint', ()=>{
+  document.body.classList.remove('mode-remito');
+  document.body.classList.remove('mode-hoja');
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+seedDataIfEmpty();
+migrateNormalizeDistrib();
+render();
+</script>
+</body>
+</html>
+  
